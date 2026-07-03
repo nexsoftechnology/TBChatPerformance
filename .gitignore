@@ -1,0 +1,26 @@
+# Ảnh test sinh ra
+assets/images/
+
+# File do buildFileTool sinh ra
+genfile/upload/index/
+genfile/upload/upload/
+
+# Manifest sinh ra
+upload-manifest.json
+
+# Report k6
+reports/
+
+# Tool binary (không commit file .exe)
+genfile/upload/buildFileTool.exe
+genfile/upload/uploadTool.exe
+
+# Wallet key (nhạy cảm - tuyệt đối không commit)
+genfile/upload/conf/wallet.bin
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
