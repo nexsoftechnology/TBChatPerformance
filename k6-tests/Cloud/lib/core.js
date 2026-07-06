@@ -2,47 +2,47 @@ import http from "k6/http";
 import { check } from "k6";
 import { Counter, Trend } from "k6/metrics";
 import { SharedArray } from "k6/data";
+import encoding from "k6/encoding";
 import { BASE_URL, MANIFEST_PATH } from "../config/enviroment.js";
 
-// Đọc manifest ở module scope — chạy lúc __VU==0, k6 cache kết quả
-const _manifest = JSON.parse(open(MANIFEST_PATH));
-
-// Load toàn bộ binary ở module scope (PHẢI chạy trước khi VU init)
-// k6 cache file content sau lần open() đầu tiên (__VU==0), các VU sau dùng cache
-const _allBinaries = _manifest.map((entry) =>
-  entry.slices.map((p) => open(`../../../${p.replace(/\\/g, "/")}`, "b"))
-);
-
-// SharedArray chỉ chứa metadata (JSON-serializable, không chứa ArrayBuffer)
-const _allMeta = new SharedArray("files", function () {
-  return _manifest.map((entry) => ({
-    unique:     entry.unique,
-    net_id:     entry.user_net_id,
-    file_size:  entry.file_size,
-    init_body:  JSON.stringify(entry.init_body),
+// SharedArray chỉ chấp nhận dữ liệu JSON-serializable, không chứa được ArrayBuffer -> encode
+// binary thành base64 (string) để nhét vào đây. Loader chạy ĐÚNG 1 LẦN, kết quả share
+// cho mọi VU (không nhân bản theo số VU) -> tổng bộ nhớ = đúng kích thước dataset.
+const _allEntries = new SharedArray("files", function () {
+  const manifest = JSON.parse(open(MANIFEST_PATH));
+  return manifest.map((entry) => ({
+    unique:    entry.unique,
+    net_id:    entry.user_net_id,
+    file_size: entry.file_size,
+    init_body: JSON.stringify(entry.init_body),
+    slicesB64: entry.slices.map((p) =>
+      encoding.b64encode(open(`../../../${p.replace(/\\/g, "/")}`, "b"))
+    ),
   }));
 });
 
 function _buildEntry(idx) {
-  const meta = _allMeta[idx];
+  const meta = _allEntries[idx];
   return {
     unique:    meta.unique,
     net_id:    meta.net_id,
     file_size: meta.file_size,
     init_body: meta.init_body,
-    slices:    _allBinaries[idx].map((data) => ({ data })),
+    // Decode base64 -> ArrayBuffer lúc dùng (run-time, không bị giới hạn như open()).
+    // Chỉ tốn bộ nhớ tạm cho đúng 1 file của VU đang chạy, không phải cả dataset.
+    slices:    meta.slicesB64.map((b64) => ({ data: encoding.b64decode(b64) })),
   };
 }
 
 // Dùng khi mỗi VU chỉ chạy 1 iteration (TC01/TC03/TC04/TC05/TC06) - 1 VU = 1 ảnh
 export function getEntryByVU() {
-  const idx = __VU > 0 ? (__VU - 1) % _allMeta.length : 0;
+  const idx = __VU > 0 ? (__VU - 1) % _allEntries.length : 0;
   return _buildEntry(idx);
 }
 
 // Dùng khi 1 VU chạy nhiều iteration tuần tự (TC02) - mỗi lần lặp lấy ảnh khác nhau
 export function getEntryByIteration() {
-  const idx = __ITER % _allMeta.length;
+  const idx = __ITER % _allEntries.length;
   return _buildEntry(idx);
 }
 
