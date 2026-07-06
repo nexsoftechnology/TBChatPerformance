@@ -1,19 +1,19 @@
-from PIL import Image, ImageDraw
-import random
-import os
-import uuid
+import argparse
+import glob
 import hashlib
+import os
+import random
+import sys
+import uuid
 
-OUTPUT_DIR = 'assets/images'
-NUM_IMAGES = 100
+from PIL import Image, ImageDraw
+
 SIZES = [
     (800, 600),
     (1920, 1080),
     (3840, 2160),
 ]
 SHAPES_PER_IMAGE = 20
-
-os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
 def generate_image(filepath):
@@ -45,18 +45,34 @@ def get_file_hash(filepath):
         return hashlib.md5(f.read()).hexdigest()
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description='Sinh ảnh test unique cho k6 upload performance test.')
+    parser.add_argument('--count', type=int, default=1000, help='Số lượng ảnh cần sinh (mặc định: 1000)')
+    parser.add_argument('--output-dir', default='assets/images', help='Thư mục output (mặc định: assets/images)')
+    return parser.parse_args()
+
+
 def main():
-    print(f"Generating {NUM_IMAGES} images into '{OUTPUT_DIR}'...")
+    args = parse_args()
+    os.makedirs(args.output_dir, exist_ok=True)
+
+    old_files = glob.glob(os.path.join(args.output_dir, 'test-img-*.jpg'))
+    for f in old_files:
+        os.remove(f)
+    if old_files:
+        print(f"Removed {len(old_files)} old image(s) from '{args.output_dir}'.")
+
+    print(f"Generating {args.count} images into '{args.output_dir}'...")
 
     generated_files = []
-    for i in range(NUM_IMAGES):
+    for i in range(args.count):
         filename = f'test-img-{uuid.uuid4().hex[:12]}.jpg'
-        filepath = os.path.join(OUTPUT_DIR, filename)
+        filepath = os.path.join(args.output_dir, filename)
         generate_image(filepath)
         generated_files.append(filepath)
 
         if (i + 1) % 100 == 0:
-            print(f'  Generated {i + 1}/{NUM_IMAGES}...')
+            print(f'  Generated {i + 1}/{args.count}...')
 
     print("\nVerifying uniqueness (MD5 hash check)...")
     hashes = set()
@@ -77,8 +93,9 @@ def main():
         print("Duplicate files:")
         for d in duplicates:
             print(f"  - {d}")
-    else:
-        print("All images are 100% unique (no hash collisions).")
+        sys.exit(1)
+
+    print("All images are 100% unique (no hash collisions).")
 
     total_size = sum(os.path.getsize(f) for f in generated_files)
     print(f"Total size on disk     : {total_size / (1024*1024):.2f} MB")

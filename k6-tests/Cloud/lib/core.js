@@ -2,11 +2,10 @@ import http from "k6/http";
 import { check } from "k6";
 import { Counter, Trend } from "k6/metrics";
 import { SharedArray } from "k6/data";
-
-export const BASE_URL = __ENV.BASE_URL || "https://node1.17qpb.com:3065";
+import { BASE_URL, MANIFEST_PATH } from "../config/enviroment.js";
 
 // Đọc manifest ở module scope — chạy lúc __VU==0, k6 cache kết quả
-const _manifest = JSON.parse(open("../../../upload-manifest.json"));
+const _manifest = JSON.parse(open(MANIFEST_PATH));
 
 // Load toàn bộ binary ở module scope (PHẢI chạy trước khi VU init)
 // k6 cache file content sau lần open() đầu tiên (__VU==0), các VU sau dùng cache
@@ -24,8 +23,7 @@ const _allMeta = new SharedArray("files", function () {
   }));
 });
 
-export function getEntry() {
-  const idx = __VU > 0 ? (__VU - 1) % _allMeta.length : 0;
+function _buildEntry(idx) {
   const meta = _allMeta[idx];
   return {
     unique:    meta.unique,
@@ -34,6 +32,18 @@ export function getEntry() {
     init_body: meta.init_body,
     slices:    _allBinaries[idx].map((data) => ({ data })),
   };
+}
+
+// Dùng khi mỗi VU chỉ chạy 1 iteration (TC01/TC03/TC04/TC05/TC06) - 1 VU = 1 ảnh
+export function getEntryByVU() {
+  const idx = __VU > 0 ? (__VU - 1) % _allMeta.length : 0;
+  return _buildEntry(idx);
+}
+
+// Dùng khi 1 VU chạy nhiều iteration tuần tự (TC02) - mỗi lần lặp lấy ảnh khác nhau
+export function getEntryByIteration() {
+  const idx = __ITER % _allMeta.length;
+  return _buildEntry(idx);
 }
 
 export const initDuration        = new Trend("init_duration",         true);

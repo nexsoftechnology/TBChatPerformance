@@ -20,19 +20,10 @@ Liên hệ Dev để lấy 2 file sau và đặt đúng vị trí:
 ### 3. Tạo thư mục cần thiết
 ```powershell
 mkdir D:\TBChatPerformance\assets\images
-mkdir D:\TBChatPerformance\genfile\upload\index
-mkdir D:\TBChatPerformance\genfile\upload\upload
 mkdir D:\TBChatPerformance\genfile\upload\conf
+mkdir D:\TBChatPerformance\data
 mkdir D:\TBChatPerformance\reports
 ```
-
----
-
-## Yêu cầu
-- Python 3.x + Pillow: `pip install Pillow`
-- Node.js
-- k6: https://k6.io/docs/get-started/installation/
-- `buildFileTool.exe` đặt trong `genfile/upload/`
 
 ---
 
@@ -40,9 +31,11 @@ mkdir D:\TBChatPerformance\reports
 
 ```
 TBChatPerformance/
-├── generate_images.py
-├── prepare-manifest.js
-├── upload-manifest.json
+├── scripts/
+│   ├── generate_images.py
+│   └── prepare-manifest.js
+├── data/
+│   └── upload-manifest.json        ← manifest sinh ra, k6 đọc vào
 ├── assets/
 │   └── images/                     ← ảnh test sinh ra
 ├── genfile/upload/
@@ -51,13 +44,16 @@ TBChatPerformance/
 │   ├── conf/wallet.bin
 │   ├── index/                      ← JSON body cho từng ảnh (do tool sinh ra)
 │   └── upload/                     ← binary slice cho từng ảnh (do tool sinh ra)
-├── k6/Cloud/
+├── k6-tests/Cloud/
+│   ├── config/
+│   │   └── enviroment.js           ← chọn server test (dev/qa) + đường dẫn manifest
 │   ├── lib/
-│   │   └── core.js                 ← logic dùng chung
+│   │   ├── core.js                 ← logic dùng chung (init + PUT slice)
+│   │   └── report.js               ← sinh report HTML sau khi test
 │   ├── TC01-baseline.js
 │   ├── TC02-single-user-100-images.js
-│   ├── TC03-concurrent-10-users.js
-│   ├── TC04-concurrent-100-users.js
+│   ├── TC03-concurrent-100-users.js
+│   ├── TC04-concurrent-500-users.js
 │   ├── TC05-concurrent-1000-users.js
 │   └── TC06-spike.js
 └── reports/                        ← HTML report sau mỗi lần chạy
@@ -70,9 +66,13 @@ TBChatPerformance/
 ### Bước 1 — Sinh ảnh test
 ```powershell
 cd D:\TBChatPerformance
-python generate_images.py
+python scripts/generate_images.py --count 1000
 ```
-Sinh 1000 ảnh unique vào `assets/images/`.
+Sinh 1000 ảnh unique vào `assets/images/` (tự xoá ảnh cũ trước khi sinh mới).
+
+Tuỳ chọn:
+- `--count <n>` — số ảnh cần sinh (mặc định 1000)
+- `--output-dir <path>` — thư mục output (mặc định `assets/images`)
 
 ---
 
@@ -93,11 +93,12 @@ Tool tạo ra:
 ### Bước 3 — Build manifest
 ```powershell
 cd D:\TBChatPerformance
-node prepare-manifest.js
+node scripts/prepare-manifest.js
 ```
-Tạo `upload-manifest.json` để k6 đọc vào.
+Tạo `data/upload-manifest.json` để k6 đọc vào.
 
 > Mỗi lần chạy lại `buildFileTool.exe` phải chạy lại bước này.
+> Script tự xác định thư mục gốc dự án, chạy được từ bất kỳ đâu (không cần `cd` vào đúng thư mục).
 
 ---
 
@@ -105,7 +106,14 @@ Tạo `upload-manifest.json` để k6 đọc vào.
 
 ```powershell
 cd D:\TBChatPerformance
-k6 run k6/Cloud/<tên-TC>.js
+k6 run k6-tests/Cloud/<tên-TC>.js
+```
+
+**Chọn server test** qua biến `ENV` (định nghĩa trong `k6-tests/Cloud/config/enviroment.js`):
+
+```powershell
+k6 run -e ENV=qa k6-tests/Cloud/TC01-baseline.js   # mặc định nếu không truyền -e ENV
+k6 run -e ENV=dev k6-tests/Cloud/TC01-baseline.js  # cần điền baseUrl cho "dev" trong enviroment.js trước
 ```
 
 ---
@@ -116,15 +124,15 @@ k6 run k6/Cloud/<tên-TC>.js
 |----|------|--------|
 | TC01 | `TC01-baseline.js` | 1 user upload 1 ảnh — smoke test |
 | TC02 | `TC02-single-user-100-images.js` | 1 user upload 100 ảnh tuần tự |
-| TC03 | `TC03-concurrent-10-users.js` | 10 user upload đồng thời |
-| TC04 | `TC04-concurrent-100-users.js` | 100 user upload đồng thời |
+| TC03 | `TC03-concurrent-100-users.js` | 100 user upload đồng thời |
+| TC04 | `TC04-concurrent-500-users.js` | 500 user upload đồng thời |
 | TC05 | `TC05-concurrent-1000-users.js` | 1000 user upload đồng thời |
 | TC06 | `TC06-spike.js` | Spike: tăng đột ngột lên 1000 user trong 5s |
 
 **Ví dụ:**
 ```powershell
-k6 run k6/Cloud/TC01-baseline.js
-k6 run k6/Cloud/TC05-concurrent-1000-users.js
+k6 run k6-tests/Cloud/TC01-baseline.js
+k6 run k6-tests/Cloud/TC05-concurrent-1000-users.js
 ```
 
 Report HTML tự động xuất vào:
@@ -136,11 +144,35 @@ reports/<TC>_<timestamp>.html
 
 ## Verify sau khi test
 
-Lấy `file_hash` bất kỳ từ `upload-manifest.json` và mở trên browser:
+### Cách 1 — Tải file qua URL (nhanh, trực quan)
+
 ```
-https://node1.17qpb.com:3065/store/file/<file_hash>
+https://node8.17qpb.com:3065/store/file/<file_hash>
 ```
-Tải được ảnh → upload thật sự thành công.
+
+Lấy `file_hash` từ `data/upload-manifest.json` (field `init_body.file_hash`), mở URL trên browser hoặc dùng curl:
+
+```powershell
+curl -k -s -o /dev/null -w "HTTP Status: %{http_code}`nContent-Type: %{content_type}`nSize: %{size_download} bytes`n" "https://node8.17qpb.com:3065/store/file/<file_hash>"
+```
+
+| Kết quả | Ý nghĩa |
+|---------|---------|
+| `200` + tải được ảnh | File đã upload thành công |
+| `404` | File chưa tồn tại trên server |
+
+> Lưu ý: dùng `node8`, không phải `node1` (node dùng để upload). File lưu trên node khác với node nhận request upload.
+
+### Cách 2 — Gọi lại POST init
+
+Nếu file đã upload, server trả về `Status=1`:
+```powershell
+cd D:\TBChatPerformance\genfile\upload
+$body = Get-Content ".\index\<unique>" -Raw
+Invoke-RestMethod -Method POST -Uri "https://node1.17qpb.com:3065/api/v2/upload/init" -ContentType "application/json" -Body $body
+```
+`data.Status = 1` → file đã có trên server (upload thành công).
+`data.Status = 2` → file chưa có → upload chưa thành công.
 
 ---
 
@@ -160,5 +192,5 @@ Tải được ảnh → upload thật sự thành công.
 ## Lưu ý
 
 - Ảnh test phải unique (hash khác nhau) để tránh server dedup bỏ qua upload.
-- Nếu muốn đổi server: sửa `BASE_URL` trong `k6/Cloud/lib/core.js`.
+- Muốn đổi server: sửa `baseUrl` trong `k6-tests/Cloud/config/enviroment.js`, không sửa trực tiếp trong `core.js`.
 - `uploadTool.exe` chỉ thực hiện bước PUT, không thay thế POST init — không dùng trong k6.
