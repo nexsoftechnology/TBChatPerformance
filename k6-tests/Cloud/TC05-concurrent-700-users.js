@@ -1,11 +1,11 @@
 import { getEntryByVU, runUpload, thresholds } from "./lib/core.js";
 import { makeSummary } from "./lib/report.js";
 
-const TC = "TC05-concurrent-1000-users";
+const TC = "TC05-concurrent-700-users";
 
 export const options = {
-  vus:        1000,
-  iterations: 1000,
+  vus:        700,
+  iterations: 700,
   thresholds,
 };
 

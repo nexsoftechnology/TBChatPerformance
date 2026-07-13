@@ -18,6 +18,12 @@ if (!current) {
   );
 }
 
+if (!current.baseUrl) {
+  throw new Error(
+    `baseUrl for ENV "${envName}" is empty. Set it in config/enviroment.js first.`,
+  );
+}
+
 export const BASE_URL = current.baseUrl;
 export { MANIFEST_PATH };
 export const ENV_NAME = envName;

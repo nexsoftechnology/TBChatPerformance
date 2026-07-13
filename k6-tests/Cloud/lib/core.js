@@ -5,6 +5,10 @@ import { SharedArray } from "k6/data";
 import encoding from "k6/encoding";
 import { BASE_URL, MANIFEST_PATH } from "../config/enviroment.js";
 
+// Timeout mỗi request. Mặc định k6 là 60s -> khi server treo, VU bị giữ tới 60s mới nhả.
+// Giảm xuống 15s để request bỏ cuộc sớm, test kết thúc nhanh và máy đỡ bị giữ tài nguyên.
+const REQ_TIMEOUT = "15s";
+
 // SharedArray chỉ chấp nhận dữ liệu JSON-serializable, không chứa được ArrayBuffer -> encode
 // binary thành base64 (string) để nhét vào đây. Loader chạy ĐÚNG 1 LẦN, kết quả share
 // cho mọi VU (không nhân bản theo số VU) -> tổng bộ nhớ = đúng kích thước dataset.
@@ -72,7 +76,7 @@ export function runUpload(entry) {
   const initRes = http.post(
     `${BASE_URL}/api/v2/upload/init`,
     init_body,
-    { headers: { "Content-Type": "application/json" } }
+    { headers: { "Content-Type": "application/json" }, timeout: REQ_TIMEOUT }
   );
   initDuration.add(Date.now() - initStart);
 
@@ -109,6 +113,7 @@ export function runUpload(entry) {
           "Content-Type":  "application/octet-stream",
           "Content-Range": `bytes ${start}-${end}/${file_size}`,
         },
+        timeout: REQ_TIMEOUT,
       }
     );
     sliceUploadDuration.add(Date.now() - sliceStart);

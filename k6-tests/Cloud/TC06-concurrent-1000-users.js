@@ -1,15 +1,11 @@
 import { getEntryByVU, runUpload, thresholds } from "./lib/core.js";
 import { makeSummary } from "./lib/report.js";
 
-const TC = "TC06-spike";
+const TC = "TC06-concurrent-1000-users";
 
 export const options = {
-  stages: [
-    { duration: "10s", target: 0    },
-    { duration: "5s",  target: 1000 },
-    { duration: "30s", target: 1000 },
-    { duration: "5s",  target: 0    },
-  ],
+  vus:        1000,
+  iterations: 1000,
   thresholds,
 };
 

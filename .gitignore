@@ -11,6 +11,9 @@ data/upload-manifest.json
 # Report k6 (giữ folder rỗng qua .gitkeep, chỉ ignore file report bên trong)
 reports/*
 !reports/.gitkeep
+!reports/Cloud/
+reports/Cloud/*
+!reports/Cloud/.gitkeep
 
 # Tool binary (không commit file .exe)
 genfile/upload/buildFileTool.exe
