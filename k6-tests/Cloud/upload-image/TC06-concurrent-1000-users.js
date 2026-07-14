@@ -1,5 +1,5 @@
-import { getEntryByVU, runUpload, thresholds } from "./lib/core.js";
-import { makeSummary } from "./lib/report.js";
+import { getEntryByVU, runUpload, thresholds } from "../lib/core-image.js";
+import { makeSummary } from "../lib/report.js";
 
 const TC = "TC06-concurrent-1000-users";
 

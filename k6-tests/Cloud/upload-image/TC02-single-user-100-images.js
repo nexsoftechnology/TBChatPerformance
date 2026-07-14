@@ -1,5 +1,5 @@
-import { getEntryByIteration, runUpload, thresholds } from "./lib/core.js";
-import { makeSummary } from "./lib/report.js";
+import { getEntryByIteration, runUpload, thresholds } from "../lib/core-image.js";
+import { makeSummary } from "../lib/report.js";
 
 const TC = "TC02-single-user-100-images";
 

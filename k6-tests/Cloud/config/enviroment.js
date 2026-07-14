@@ -8,6 +8,7 @@ const environments = {
 };
 
 const MANIFEST_PATH = "../../../data/upload-manifest.json";
+const MANIFEST_PATH_VIDEO = "../../../data/upload-manifest-video.json";
 
 const envName = __ENV.ENV || "qa"; // default qa if haven't param -e ENV=
 const current = environments[envName];
@@ -25,5 +26,5 @@ if (!current.baseUrl) {
 }
 
 export const BASE_URL = current.baseUrl;
-export { MANIFEST_PATH };
+export { MANIFEST_PATH, MANIFEST_PATH_VIDEO };
 export const ENV_NAME = envName;
