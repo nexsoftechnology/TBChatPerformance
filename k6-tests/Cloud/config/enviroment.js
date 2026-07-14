@@ -7,10 +7,11 @@ const environments = {
   },
 };
 
-const MANIFEST_PATH = "../../../data/upload-manifest.json";
+const MANIFEST_PATH = "../../../data/upload-manifest-image.json";
 const MANIFEST_PATH_VIDEO = "../../../data/upload-manifest-video.json";
+const MANIFEST_PATH_MIXED = "../../../data/upload-manifest-mixed.json";
 
-const envName = __ENV.ENV || "qa"; // default qa if haven't param -e ENV=
+const envName = __ENV.ENV || "qa";
 const current = environments[envName];
 
 if (!current) {
@@ -26,5 +27,5 @@ if (!current.baseUrl) {
 }
 
 export const BASE_URL = current.baseUrl;
-export { MANIFEST_PATH, MANIFEST_PATH_VIDEO };
+export { MANIFEST_PATH, MANIFEST_PATH_VIDEO, MANIFEST_PATH_MIXED };
 export const ENV_NAME = envName;

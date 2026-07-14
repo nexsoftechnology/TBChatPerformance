@@ -13,4 +13,4 @@ export default function () {
   runUpload(getEntryByIteration());
 }
 
-export const handleSummary = makeSummary(TC);
+export const handleSummary = makeSummary(TC, "upload-image");

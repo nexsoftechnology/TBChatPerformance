@@ -7,7 +7,7 @@ import sys
 import uuid
 
 FORMATS = ['mp4', 'mov', 'avi', 'mkv', 'webm']
-CHUNK_SIZE = 1024 * 1024  # 1MB, ghi theo chunk để không tốn RAM với file lớn
+CHUNK_SIZE = 1024 * 1024
 
 
 def generate_video(filepath, size_bytes):

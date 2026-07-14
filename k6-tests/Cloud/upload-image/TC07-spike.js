@@ -17,4 +17,4 @@ export default function () {
   runUpload(getEntryByVU());
 }
 
-export const handleSummary = makeSummary(TC);
+export const handleSummary = makeSummary(TC, "upload-image");

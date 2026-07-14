@@ -5,10 +5,8 @@ const ROOT_DIR = path.join(__dirname, "..");
 
 const INDEX_DIR    = process.env.INDEX_DIR    || path.join(ROOT_DIR, "genfile", "upload", "index");
 const UPLOAD_DIR   = process.env.UPLOAD_DIR   || path.join(ROOT_DIR, "genfile", "upload", "upload");
-const MANIFEST_OUT = process.env.MANIFEST_OUT || path.join(ROOT_DIR, "data", "upload-manifest.json");
+const MANIFEST_OUT = process.env.MANIFEST_OUT || path.join(ROOT_DIR, "data", "upload-manifest-image.json");
 
-// core.js đọc slice bằng path relative-to-repo-root, nên phải lưu path dạng đó
-// bất kể INDEX_DIR/UPLOAD_DIR override có phải path tuyệt đối hay không.
 function toRootRelative(p) {
   return path.relative(ROOT_DIR, p).split(path.sep).join("/");
 }

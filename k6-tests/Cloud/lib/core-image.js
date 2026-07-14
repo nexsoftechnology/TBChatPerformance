@@ -5,13 +5,8 @@ import { SharedArray } from "k6/data";
 import encoding from "k6/encoding";
 import { BASE_URL, MANIFEST_PATH } from "../config/enviroment.js";
 
-// Timeout mỗi request. Mặc định k6 là 60s -> khi server treo, VU bị giữ tới 60s mới nhả.
-// Giảm xuống 15s để request bỏ cuộc sớm, test kết thúc nhanh và máy đỡ bị giữ tài nguyên.
 const REQ_TIMEOUT = "15s";
 
-// SharedArray chỉ chấp nhận dữ liệu JSON-serializable, không chứa được ArrayBuffer -> encode
-// binary thành base64 (string) để nhét vào đây. Loader chạy ĐÚNG 1 LẦN, kết quả share
-// cho mọi VU (không nhân bản theo số VU) -> tổng bộ nhớ = đúng kích thước dataset.
 const _allEntries = new SharedArray("files", function () {
   const manifest = JSON.parse(open(MANIFEST_PATH));
   return manifest.map((entry) => ({
@@ -32,19 +27,15 @@ function _buildEntry(idx) {
     net_id:    meta.net_id,
     file_size: meta.file_size,
     init_body: meta.init_body,
-    // Decode base64 -> ArrayBuffer lúc dùng (run-time, không bị giới hạn như open()).
-    // Chỉ tốn bộ nhớ tạm cho đúng 1 file của VU đang chạy, không phải cả dataset.
     slices:    meta.slicesB64.map((b64) => ({ data: encoding.b64decode(b64) })),
   };
 }
 
-// Dùng khi mỗi VU chỉ chạy 1 iteration (TC01/TC03/TC04/TC05/TC06) - 1 VU = 1 ảnh
 export function getEntryByVU() {
   const idx = __VU > 0 ? (__VU - 1) % _allEntries.length : 0;
   return _buildEntry(idx);
 }
 
-// Dùng khi 1 VU chạy nhiều iteration tuần tự (TC02) - mỗi lần lặp lấy ảnh khác nhau
 export function getEntryByIteration() {
   const idx = __ITER % _allEntries.length;
   return _buildEntry(idx);
@@ -57,11 +48,12 @@ export const sliceErrors         = new Counter("slice_errors");
 export const filesCompleted      = new Counter("files_completed");
 
 export const thresholds = {
-  http_req_duration:       ["p(95)<5000"],
+  http_req_failed:         ["rate<0.05"],
   checks:                  ["rate>0.95"],
   "init_duration":         ["p(95)<5000"],
   "slice_upload_duration": ["p(95)<3000"],
   "file_upload_duration":  ["p(95)<30000"],
+  "http_req_duration":     ["p(95)<5000"],
 };
 
 export function runUpload(entry) {

@@ -35,11 +35,13 @@ TBChatPerformance/
 │   ├── generate_videos.py
 │   └── prepare-manifest.js
 ├── data/
-│   ├── upload-manifest.json        ← generated manifest for images, read by k6
-│   └── upload-manifest-video.json  ← generated manifest for videos, read by k6
+│   ├── upload-manifest-image.json  ← generated manifest for images, read by k6
+│   ├── upload-manifest-video.json  ← generated manifest for videos, read by k6
+│   └── upload-manifest-mixed.json  ← generated manifest for mixed image+video, read by k6
 ├── assets/
 │   ├── images/                     ← generated test images
-│   └── videos/                     ← generated test videos
+│   ├── videos/                     ← generated test videos
+│   └── mixed/                      ← images + videos generated into the same folder
 ├── genfile/upload/
 │   ├── buildFileTool.exe
 │   ├── uploadTool.exe
@@ -52,6 +54,7 @@ TBChatPerformance/
 │   ├── lib/
 │   │   ├── core-image.js           ← shared logic for images (init + PUT slice)
 │   │   ├── core-video.js           ← same logic for videos (longer timeout/thresholds)
+│   │   ├── core-mixed.js           ← same logic, reads the mixed manifest
 │   │   └── report.js               ← generates HTML report after test
 │   ├── upload-image/
 │   │   ├── TC01-baseline.js
@@ -61,9 +64,22 @@ TBChatPerformance/
 │   │   ├── TC05-concurrent-700-users.js
 │   │   ├── TC06-concurrent-1000-users.js
 │   │   └── TC07-spike.js
-│   └── upload-video/
-│       └── TC01-video-baseline.js
-└── reports/Cloud/                  ← HTML report after each run (split by module)
+│   ├── upload-video/
+│   │   ├── TC01-video-baseline.js
+│   │   ├── TC02-concurrent-100-users.js
+│   │   ├── TC03-concurrent-500-users.js
+│   │   ├── TC04-concurrent-1000-users.js
+│   │   └── TC05-spike.js
+│   └── upload-mixed/
+│       ├── TC01-concurrent-6-users.js
+│       ├── TC02-concurrent-100-users.js
+│       ├── TC03-concurrent-500-users.js
+│       ├── TC04-concurrent-1000-users.js
+│       └── TC05-spike.js
+└── reports/Cloud/
+    ├── upload-image/                ← HTML report after each image test run
+    ├── upload-video/                ← HTML report after each video test run
+    └── upload-mixed/                ← HTML report after each mixed test run
 ```
 
 ---
@@ -92,7 +108,7 @@ python scripts/generate_images.py --count 1000 --formats jpg,png
 ```powershell
 cd D:\TBChatPerformance\genfile\upload
 .\buildFileTool.exe -uploadDir="D:\TBChatPerformance\assets\images"
-
+cd D:\TBChatPerformance
 ```
 The tool generates:
 - `index/<unique>` — JSON body for POST init
@@ -104,10 +120,9 @@ The tool generates:
 
 ### Step 3 — Build manifest
 ```powershell
-cd D:\TBChatPerformance
 node scripts/prepare-manifest.js
 ```
-Generates `data/upload-manifest.json` for k6 to read.
+Generates `data/upload-manifest-image.json` for k6 to read.
 
 > Every time `buildFileTool.exe` is re-run, this step must be re-run too.
 > The script auto-detects the project root, so it can run from anywhere (no need to `cd` into a specific folder).
@@ -117,7 +132,6 @@ Generates `data/upload-manifest.json` for k6 to read.
 ### Step 4 — Run the test
 
 ```powershell
-cd D:\TBChatPerformance
 k6 run k6-tests/Cloud/upload-image/<TC-name>.js
 ```
 
@@ -136,7 +150,7 @@ Videos are much larger than images (measured throughput to node1: ~1.5 MB/s, so 
 video takes ~14s to PUT). `buildFileTool.exe` rebuilds `genfile/upload/index` and
 `genfile/upload/upload` from scratch on every run — it does **not** append — so images
 and videos cannot coexist there at the same time. Each dataset needs its own manifest
-file (`data/upload-manifest.json` for images vs `data/upload-manifest-video.json` for
+file (`data/upload-manifest-image.json` for images vs `data/upload-manifest-video.json` for
 videos) so you don't have to rebuild one to run the other, but the underlying `genfile`
 folders always reflect whichever dataset was built most recently.
 
@@ -170,11 +184,59 @@ node scripts/prepare-manifest.js
 
 ### Step 4 — Run the video test
 ```powershell
-k6 run k6-tests/Cloud/upload-video/TC01-video-baseline.js
+k6 run k6-tests/Cloud/upload-video/<TC-name>.js
 ```
 
 `core-video.js` uses a 180s per-request timeout and much looser latency thresholds
 than `core-image.js` (images), since a single large PUT can legitimately take tens of seconds.
+
+---
+
+## Mixed test process (images and videos uploaded at the same time)
+
+Since `buildFileTool.exe` always rebuilds `genfile/upload/index` and `genfile/upload/upload`
+from scratch, images and videos built separately can never coexist there — one always
+overwrites the other. To test both being uploaded concurrently in the *same* run, generate
+both into the *same* folder first, then run `buildFileTool.exe` **once** against that
+combined folder.
+
+### Step 1 — Generate test images and videos into the same folder
+```powershell
+cd D:\TBChatPerformance
+python scripts/generate_images.py --count 50 --output-dir assets/mixed
+python scripts/generate_videos.py --count 50 --min-size-mb 5 --max-size-mb 20 --output-dir assets/mixed
+```
+This produces 6 files total, enough for `TC01-concurrent-6-users.js`. To run
+`TC02-concurrent-100-users.js` instead, use `--count 50` for both (100 total).
+
+> Both generator scripts only clean up their *own* filename prefix (`test-img-*` /
+> `test-video-*`), so running them one after another into the same `--output-dir` does
+> not delete each other's files.
+
+### Step 2 — Process the combined folder with buildFileTool
+```powershell
+cd D:\TBChatPerformance\genfile\upload
+.\buildFileTool.exe -uploadDir="D:\TBChatPerformance\assets\mixed"
+cd D:\TBChatPerformance
+```
+It doesn't care about file type, so it happily builds chunks for images and videos
+together in a single pass.
+
+### Step 3 — Build the mixed manifest (separate file, via MANIFEST_OUT)
+```powershell
+$env:MANIFEST_OUT = "D:\TBChatPerformance\data\upload-manifest-mixed.json"
+node scripts/prepare-manifest.js
+```
+
+### Step 4 — Run the mixed test
+```powershell
+k6 run k6-tests/Cloud/upload-mixed/TC01-concurrent-6-users.js
+k6 run k6-tests/Cloud/upload-mixed/TC02-concurrent-100-users.js
+```
+
+`lib/core-mixed.js` reads `data/upload-manifest-mixed.json` and uses the same generous
+timeout/thresholds as `core-video.js` — a safe superset, since small image uploads finish
+well within those limits and only the video-sized entries actually need them.
 
 ---
 
@@ -197,6 +259,20 @@ than `core-image.js` (images), since a single large PUT can legitimately take te
 | TC | File | Description |
 |----|------|--------|
 | TC01 | `TC01-video-baseline.js` | 1 user uploads 1 video — smoke test |
+| TC02 | `TC02-concurrent-100-users.js` | 100 users uploading videos concurrently |
+| TC03 | `TC03-concurrent-500-users.js` | 500 users uploading videos concurrently |
+| TC04 | `TC04-concurrent-1000-users.js` | 1000 users uploading videos concurrently |
+| TC05 | `TC05-spike.js` | Spike: sudden ramp-up to 1000 users in 5s |
+
+### upload-mixed
+
+| TC | File | Description |
+|----|------|--------|
+| TC01 | `TC01-concurrent-6-users.js` | 6 users uploading images and videos concurrently in the same run |
+| TC02 | `TC02-concurrent-100-users.js` | 100 users uploading images and videos concurrently in the same run |
+| TC03 | `TC03-concurrent-500-users.js` | 500 users uploading images and videos concurrently in the same run |
+| TC04 | `TC04-concurrent-1000-users.js` | 1000 users uploading images and videos concurrently in the same run |
+| TC05 | `TC05-spike.js` | Spike: sudden ramp-up to 1000 users in 5s |
 
 **Example:**
 ```powershell
@@ -207,7 +283,8 @@ k6 run k6-tests/Cloud/upload-video/TC01-video-baseline.js
 
 The HTML report is automatically written to:
 ```
-reports/Cloud/<TC>_<timestamp>.html
+reports/Cloud/upload-image/<TC>_<timestamp>.html
+reports/Cloud/upload-video/<TC>_<timestamp>.html
 ```
 
 ---
@@ -220,7 +297,7 @@ reports/Cloud/<TC>_<timestamp>.html
 https://node8.17qpb.com:3065/store/file/<file_hash>
 ```
 
-Get `file_hash` from `data/upload-manifest.json` (field `init_body.file_hash`), then open the URL in a browser or use curl:
+Get `file_hash` from `data/upload-manifest-image.json` (field `init_body.file_hash`), then open the URL in a browser or use curl:
 
 ```powershell
 curl -k -s -o /dev/null -w "HTTP Status: %{http_code}`nContent-Type: %{content_type}`nSize: %{size_download} bytes`n" "https://node8.17qpb.com:3065/store/file/<file_hash>"

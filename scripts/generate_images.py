@@ -133,7 +133,6 @@ def main():
             write_failed += 1
             continue
 
-        # Đo size ngay sau khi ghi - tránh race với AV/EDR có thể xoá file bất kỳ lúc nào sau đó
         try:
             total_size += os.path.getsize(filepath)
             generated_files.append(filepath)
