@@ -10,24 +10,36 @@ const REQ_TIMEOUT = "180s";
 const _allEntries = new SharedArray("mixed", function () {
   const manifest = JSON.parse(open(MANIFEST_PATH_MIXED));
   return manifest.map((entry) => ({
-    unique:    entry.unique,
-    net_id:    entry.user_net_id,
-    file_size: entry.file_size,
-    init_body: JSON.stringify(entry.init_body),
-    slicesB64: entry.slices.map((p) =>
+    unique:     entry.unique,
+    net_id:     entry.user_net_id,
+    file_size:  entry.file_size,
+    chunk_size: entry.init_body.file_chunk_size,
+    init_body:  JSON.stringify(entry.init_body),
+    slicesB64:  entry.slices.map((p) =>
       encoding.b64encode(open(`../../../${p.replace(/\\/g, "/")}`, "b"))
     ),
   }));
 });
 
+// Server rejects a single whole-file PUT ("invalid Content-Range v1") once
+// init declares file_chunk_size < file_size, so the file must be re-sliced
+// here into file_chunk_size-sized pieces before uploading.
 function _buildEntry(idx) {
   const meta = _allEntries[idx];
+  const fullBytes = encoding.b64decode(meta.slicesB64[0]);
+  const chunkSize = meta.chunk_size > 0 ? meta.chunk_size : fullBytes.byteLength;
+
+  const slices = [];
+  for (let offset = 0; offset < fullBytes.byteLength; offset += chunkSize) {
+    slices.push({ data: fullBytes.slice(offset, offset + chunkSize) });
+  }
+
   return {
     unique:    meta.unique,
     net_id:    meta.net_id,
     file_size: meta.file_size,
     init_body: meta.init_body,
-    slices:    meta.slicesB64.map((b64) => ({ data: encoding.b64decode(b64) })),
+    slices,
   };
 }
 
