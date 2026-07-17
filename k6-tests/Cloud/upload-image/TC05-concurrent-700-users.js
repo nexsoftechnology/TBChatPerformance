@@ -4,8 +4,11 @@ import { makeSummary } from "../lib/report.js";
 const TC = "TC05-concurrent-700-users";
 
 export const options = {
-  vus:        700,
-  iterations: 700,
+  stages: [
+    { duration: "3s",  target: 700 },
+    { duration: "20s", target: 700 },
+    { duration: "5s",  target: 0   },
+  ],
   thresholds,
 };
 
