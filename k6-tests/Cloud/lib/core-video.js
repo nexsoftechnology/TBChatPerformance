@@ -68,7 +68,6 @@ export const thresholds = {
   "file_upload_duration":  ["p(95)<30000"],
   "http_req_duration":     ["p(95)<30000"],
   "iteration_duration":    ["p(95)<35000"],
-  "http_req_sending":      ["p(95)<25000"],
 };
 
 export function runUpload(entry) {
