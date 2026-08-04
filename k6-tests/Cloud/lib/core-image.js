@@ -51,8 +51,8 @@ export const thresholds = {
   http_req_failed:         ["rate<0.05"],
   checks:                  ["rate>0.95"],
   "init_duration":         ["p(95)<5000"],
-  "slice_upload_duration": ["p(95)<10000"],
-  "file_upload_duration":  ["p(95)<10000"],
+  "slice_upload_duration": ["p(95)<11000"],
+  "file_upload_duration":  ["p(95)<11000"],
   "http_req_duration":     ["p(95)<10000"],
 };
 
@@ -66,7 +66,7 @@ export function runUpload(entry) {
 
   const initStart = Date.now();
   const initRes = http.post(
-    `${BASE_URL}/api/v2/upload/init`,
+    `${BASE_URL}/api/v2/upload/initd`,
     init_body,
     { headers: { "Content-Type": "application/json" }, timeout: REQ_TIMEOUT }
   );

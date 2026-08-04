@@ -3,7 +3,7 @@ const environments = {
     baseUrl: "",
   },
   qa: {
-    baseUrl: "https://node1.17qpb.com:3065",
+    baseUrl: "https://node5.17qpb.com:3065",
   },
 };
 

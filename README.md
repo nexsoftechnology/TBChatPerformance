@@ -15,7 +15,6 @@ Contact Dev to get the following files and place them in the correct location:
 |------|---------|
 | `buildFileTool.exe` | `genfile/upload/` |
 | `uploadTool.exe` | `genfile/upload/` |
-| `wallet.bin` | `genfile/upload/conf/` |
 
 ### 3. Create required folders
 ```powershell
@@ -159,9 +158,14 @@ folders always reflect whichever dataset was built most recently.
 cd D:\TBChatPerformance
 python scripts/generate_videos.py --count 10 --min-size-mb 5 --max-size-mb 20
 ```
-Generates random-binary video-sized files into `assets/videos/` across 5 container
-formats: `mp4, mov, avi, mkv, webm`. The server does not validate actual video/codec
-content, so synthetic binary data is sufficient for load testing.
+Generates **real, playable** videos (via `ffmpeg`) into `assets/videos/` across 5
+container formats: `mp4, mov, avi, mkv, webm` — each has an actual video+audio track
+(8s, testsrc pattern + tone) and can be opened in any player, unlike the old
+random-byte placeholder files. Requires `ffmpeg` on `PATH` (`winget install Gyan.FFmpeg`,
+then open a new terminal).
+
+> Real encoding is much slower than writing random bytes — generating hundreds of
+> videos (e.g. for the 500/1000-user test cases) can take several minutes.
 
 Options:
 - `--count <n>` — number of videos to generate (default 10)

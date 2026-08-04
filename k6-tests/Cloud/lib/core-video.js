@@ -80,7 +80,7 @@ export function runUpload(entry) {
 
   const initStart = Date.now();
   const initRes = http.post(
-    `${BASE_URL}/api/v2/upload/init`,
+    `${BASE_URL}/api/v2/upload/initd`,
     init_body,
     { headers: { "Content-Type": "application/json" }, timeout: REQ_TIMEOUT }
   );
