@@ -9,8 +9,13 @@ import uuid
 
 FORMATS = ['mp4', 'mov', 'avi', 'mkv', 'webm']
 CHUNK_SIZE = 1024 * 1024
-DURATION_S = 8
 RESOLUTIONS = [(640, 480), (1280, 720)]
+# Bitrate "hop ly" cho tung resolution (Mbps thuc te, encoder du suc lap day nho co
+# noise filter). Duration se duoc SUY RA tu day de dat dung target MB - vd 100MB o
+# 720p/8000kbps ~ 105s, thay vi ep 1 clip 8s phai chay bitrate phi thuc te ~105Mbps.
+NOMINAL_KBPS = {(640, 480): 4000, (1280, 720): 8000}
+MIN_DURATION_S = 3
+MAX_DURATION_S = 120
 
 # Moi format can codec/container rieng de ra file THAT choi duoc (khong phai byte rac).
 CODEC_MAP = {
@@ -29,13 +34,26 @@ def bitrate_kbps_for_target(target_bytes, duration_s, audio_kbps=128, overhead_r
     return max(round(video_kbps), 150)
 
 
+def duration_for_target(target_bytes, width, height):
+    """Tu tinh so giay tuong ung voi dung luong muon sinh, dua tren bitrate hop ly
+    cua resolution - MB cang lon thi video cang dai (khong phai bitrate cang cao)."""
+    nominal_kbps = NOMINAL_KBPS[(width, height)]
+    duration = (target_bytes * 8 / 1000) / nominal_kbps
+    return max(MIN_DURATION_S, min(duration, MAX_DURATION_S))
+
+
 def generate_video(filepath, ext, size_bytes):
     """Sinh 1 video THAT (h264/vp9 + audio that) bang ffmpeg, choi duoc binh thuong.
+    Duration duoc TU DONG suy ra tu dung luong muc tieu (xem duration_for_target).
+    Them noise filter de nguon hinh du "phuc tap" cho encoder thuc su lap day duoc
+    bitrate target (testsrc2 tron qua de nen, neu khong co noise thi target size lon
+    se bi UNDERSHOOT rat nhieu).
     Moi lan goi dung offset seek + tan so am thanh NGAU NHIEN de dam bao noi dung
     (va do do hash) khac nhau giua cac file - server dedup theo hash, trung se hong test."""
     codec = CODEC_MAP[ext]
     width, height = random.choice(RESOLUTIONS)
-    kbps = bitrate_kbps_for_target(size_bytes, DURATION_S)
+    duration = duration_for_target(size_bytes, width, height)
+    kbps = bitrate_kbps_for_target(size_bytes, duration)
     seek_offset = random.uniform(0, 60)
     audio_freq = random.randint(200, 2000)
 
@@ -43,7 +61,8 @@ def generate_video(filepath, ext, size_bytes):
         'ffmpeg', '-y', '-hide_banner', '-loglevel', 'error',
         '-f', 'lavfi', '-ss', str(seek_offset), '-i', f'testsrc2=size={width}x{height}:rate=30',
         '-f', 'lavfi', '-i', f'sine=frequency={audio_freq}:sample_rate=44100',
-        '-t', str(DURATION_S),
+        '-t', str(duration),
+        '-vf', 'noise=alls=30:allf=t+u',
         '-c:v', codec['vcodec'],
         '-b:v', f'{kbps}k', '-maxrate', f'{kbps}k', '-bufsize', f'{kbps * 2}k',
         '-pix_fmt', 'yuv420p',
@@ -119,8 +138,9 @@ def main():
 
     print(f"Generating {args.count} REAL playable video(s) ({', '.join(formats)}), "
           f"{args.min_size_mb}-{args.max_size_mb} MB each, into '{args.output_dir}'...")
-    print(f"(Moi video dai {DURATION_S}s, co audio, encode qua ffmpeg - se cham hon nhieu so voi "
-          f"ban random-byte cu. Voi so luong lon (>100), can kien nhan cho.)")
+    print(f"(Duration tu dong tinh theo dung luong (~{MIN_DURATION_S}-{MAX_DURATION_S}s), co audio, "
+          f"encode qua ffmpeg - se cham hon nhieu so voi ban random-byte cu. "
+          f"Voi so luong lon (>100), can kien nhan cho.)")
 
     generated_files = []
     total_size = 0
