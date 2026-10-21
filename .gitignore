@@ -27,10 +27,19 @@ reports/Cloud/upload-video/*
 !reports/Cloud/upload-mixed/
 reports/Cloud/upload-mixed/*
 !reports/Cloud/upload-mixed/.gitkeep
+!reports/Discover/
+reports/Discover/*
+!reports/Discover/.gitkeep
+!reports/Discover/repost/
+reports/Discover/repost/*
+!reports/Discover/repost/.gitkeep
 
 # Tool binary (không commit file .exe)
 genfile/upload/buildFileTool.exe
 genfile/upload/uploadTool.exe
+
+# Secrets (API key for Discover tests) - copy .env.example to .env
+.env
 
 # Wallet key (nhạy cảm - tuyệt đối không commit)
 genfile/upload/conf/wallet.bin

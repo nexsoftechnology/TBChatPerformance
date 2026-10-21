@@ -293,6 +293,31 @@ reports/Cloud/upload-video/<TC>_<timestamp>.html
 
 ---
 
+## Discover API tests (repost)
+
+Target: NexSoft CI/CD API at `http://mac-mini-2.local:8080/api/v1` (LAN only). `POST /reposts` only creates a **job** (build machine downloads the TikTok video and posts it to TBChat SocialFi); it does not receive a file. Each VU creates a job, then polls `GET /jobs/{id}` until `succeeded`/`failed`/`cancelled`.
+
+| TC | File | Description |
+|----|------|--------|
+| TC01 | `repost/TC01-baseline.js` | 1 user creates 1 repost job — smoke test |
+| TC02 | `repost/TC02-concurrent-5-users.js` | 5 users create jobs at once — measures queue wait |
+| TC03 | `repost/TC03-concurrent-20-users.js` | 20 users create jobs at once |
+
+Keep the key in `.env` (git-ignored): copy `.env.example` to `.env` and set `API_KEY`. k6 does not read `.env` itself, so run through the wrapper:
+
+```powershell
+.\scripts\run-discover.ps1 k6-tests/Discover/repost/TC01-baseline.js
+.\scripts\run-discover.ps1 k6-tests/Discover/repost/TC02-concurrent-5-users.js
+```
+
+Options (set in `.env`, or `-e NAME=value` after the file): `API_KEY` (required for repost, never commit it), `REPOST_ENV` (`test` default, `dev` allowed, `prod` rejected), `REPOST_URLS` (comma separated profiles, VU n takes entry n % length — use distinct profiles for concurrent VUs), `REPOST_LIMIT` (videos per profile, default 1), `JOB_TIMEOUT_S` (default 600), `POLL_INTERVAL_S` (default 3).
+
+Extra metrics: `repost_create_duration` (time to get `202`), `repost_queue_wait` (created → started), `repost_run_duration` (started → finished), `repost_e2e_duration`, `repost_job_success`. Reports go to `reports/Discover/repost/`.
+
+Every request creates a real job and post, and the API has no rate limit: start from TC01, and agree the load with the Discover team before TC03.
+
+---
+
 ## Verify after test
 
 ### Method 1 — Download the file via URL (fast, visual)
