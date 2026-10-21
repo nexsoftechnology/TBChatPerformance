@@ -56,11 +56,14 @@ function _getJob(id) {
   return http.get(`${BASE_URL}/jobs/${id}`, { timeout: REQ_TIMEOUT });
 }
 
-export function runRepost(url) {
+// opts.limit / opts.timeoutS override the REPOST_LIMIT / JOB_TIMEOUT_S defaults
+export function runRepost(url, opts = {}) {
+  const limit    = opts.limit    || REPOST_LIMIT;
+  const timeoutS = opts.timeoutS || JOB_TIMEOUT_S;
   const body = JSON.stringify({
     url,
     environment: REPOST_ENV,
-    limit: REPOST_LIMIT,
+    limit,
   });
 
   const createStart = Date.now();
@@ -85,7 +88,7 @@ export function runRepost(url) {
   const pollStart = Date.now();
   let job = null;
 
-  while ((Date.now() - pollStart) / 1000 < JOB_TIMEOUT_S) {
+  while ((Date.now() - pollStart) / 1000 < timeoutS) {
     sleep(POLL_INTERVAL_S);
     const res = _getJob(jobId);
     if (res.status !== 200) continue;
@@ -97,7 +100,7 @@ export function runRepost(url) {
   if (!job) {
     jobsTimedOut.add(1);
     jobSuccessRate.add(false);
-    console.error(`VU ${__VU} | job=${jobId} | timed out after ${JOB_TIMEOUT_S}s`);
+    console.error(`VU ${__VU} | job=${jobId} | timed out after ${timeoutS}s`);
     return;
   }
 
