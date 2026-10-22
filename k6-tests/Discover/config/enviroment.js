@@ -38,6 +38,11 @@ const REPOST_LIMIT = parseInt(__ENV.REPOST_LIMIT || "1", 10);
 const JOB_TIMEOUT_S = parseInt(__ENV.JOB_TIMEOUT_S || "600", 10);
 const POLL_INTERVAL_S = parseInt(__ENV.POLL_INTERVAL_S || "3", 10);
 
+// PROMOTE=true: right after creating a job, call POST /jobs/{id}/promote so it
+// starts now in the parallel lane instead of waiting behind a running build.
+// Server answers 409 while another repost/interaction/gen is running.
+const PROMOTE = (__ENV.PROMOTE || "false").toLowerCase() === "true";
+
 export const BASE_URL = current.baseUrl;
 export const ENV_NAME = envName;
 export {
@@ -47,4 +52,5 @@ export {
   REPOST_LIMIT,
   JOB_TIMEOUT_S,
   POLL_INTERVAL_S,
+  PROMOTE,
 };

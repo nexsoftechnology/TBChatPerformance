@@ -300,6 +300,7 @@ Target: NexSoft CI/CD API at `http://mac-mini-2.local:8080/api/v1` (LAN only). `
 | TC | File | Description |
 |----|------|--------|
 | TC01 | `repost/TC01-single-user-20-videos.js` | 1 user reposts 20 videos in a single job (needs a profile with 20 unposted videos) |
+| TC02 | `repost/TC02-concurrent-5-users.js` | 5 users at once, each reposting its own link (needs 5 links in `REPOST_URLS`) |
 
 Keep the key in `.env` (git-ignored): copy `.env.example` to `.env` and set `API_KEY`. k6 does not read `.env` itself, so run through the wrapper:
 
@@ -307,9 +308,9 @@ Keep the key in `.env` (git-ignored): copy `.env.example` to `.env` and set `API
 .\scripts\run-discover.ps1 k6-tests/Discover/repost/TC01-single-user-20-videos.js
 ```
 
-Options (set in `.env`, or `-e NAME=value` after the file): `API_KEY` (required for repost, never commit it), `REPOST_ENV` (`test` default, `dev` allowed, `prod` rejected), `REPOST_URLS` (comma separated profiles, VU n takes entry n % length — use distinct profiles for concurrent VUs), `REPOST_LIMIT` (videos per profile, default 1), `JOB_TIMEOUT_S` (default 600), `POLL_INTERVAL_S` (default 3).
+Options (set in `.env`, or `-e NAME=value` after the file): `API_KEY` (required for repost, never commit it), `REPOST_ENV` (`test` default, `dev` allowed, `prod` rejected), `REPOST_URLS` (comma separated profiles, VU n takes entry n % length — use distinct profiles for concurrent VUs), `REPOST_LIMIT` (videos per profile, default 1), `JOB_TIMEOUT_S` (default 600), `POLL_INTERVAL_S` (default 3), `PROMOTE` (`true` = call `POST /jobs/{id}/promote` after creating the job so it starts now instead of waiting behind a build; refused with 409 while another repost is running; TC01 always promotes).
 
-Extra metrics: `repost_create_duration` (time to get `202`), `repost_queue_wait` (created → started), `repost_run_duration` (started → finished), `repost_e2e_duration`, `repost_job_success`. Reports go to `reports/Discover/repost/`.
+Extra metrics: `repost_create_duration` (time to get `202`), `repost_queue_wait` (created → started), `repost_run_duration` (started → finished), `repost_e2e_duration`, `repost_job_success`, `repost_jobs_promoted`, `repost_promote_refused`. Reports go to `reports/Discover/repost/`.
 
 Every request creates a real job and post, and the API has no rate limit: start from TC01, and agree the load with the Discover team before TC03.
 

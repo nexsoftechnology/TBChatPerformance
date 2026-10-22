@@ -9,6 +9,7 @@ import {
   REPOST_LIMIT,
   JOB_TIMEOUT_S,
   POLL_INTERVAL_S,
+  PROMOTE,
 } from "../config/enviroment.js";
 
 const REQ_TIMEOUT = "30s";
@@ -22,6 +23,8 @@ export const jobSuccessRate  = new Rate("repost_job_success");
 export const jobsSucceeded   = new Counter("repost_jobs_succeeded");
 export const jobsFailed      = new Counter("repost_jobs_failed");
 export const jobsTimedOut    = new Counter("repost_jobs_timed_out");
+export const jobsPromoted    = new Counter("repost_jobs_promoted");
+export const promoteRefused  = new Counter("repost_promote_refused");
 
 export const thresholds = {
   http_req_failed:          ["rate<0.05"],
@@ -38,6 +41,15 @@ export function setupCheck() {
   const res = http.get(`${BASE_URL}/health`, { timeout: REQ_TIMEOUT });
   if (res.status !== 200) {
     throw new Error(`Discover API not healthy: GET /health -> ${res.status}`);
+  }
+}
+
+// Fail fast when fewer profiles than VUs: VUs would share one account folder.
+export function requireUrls(count) {
+  if (REPOST_URLS.length < count) {
+    throw new Error(
+      `REPOST_URLS has ${REPOST_URLS.length} link(s), need ${count} (one per VU). Set them in .env, comma separated.`,
+    );
   }
 }
 
@@ -85,6 +97,22 @@ export function runRepost(url, opts = {}) {
   }
 
   const jobId = createRes.json("id");
+
+  if (opts.promote !== undefined ? opts.promote : PROMOTE) {
+    const promoteRes = http.post(`${BASE_URL}/jobs/${jobId}/promote`, null, {
+      headers: { "X-API-Key": API_KEY },
+      timeout: REQ_TIMEOUT,
+      responseCallback: http.expectedStatuses(200, 409),
+    });
+    if (promoteRes.status === 200) {
+      jobsPromoted.add(1);
+    } else {
+      // 409: another repost/interaction/gen is running, job keeps waiting its turn
+      promoteRefused.add(1);
+      console.warn(`VU ${__VU} | job=${jobId} | promote refused status=${promoteRes.status} body=${promoteRes.body?.substring(0, 200)}`);
+    }
+  }
+
   const pollStart = Date.now();
   let job = null;
 

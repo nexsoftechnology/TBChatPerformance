@@ -28,7 +28,7 @@ export function setup() {
 // not yet posted to the environment are uploaded, so use a profile that has at
 // least VIDEOS unposted videos or the job finishes early with nothing posted.
 export default function () {
-  runRepost(getUrlByVU(), { limit: VIDEOS, timeoutS: 1800 });
+  runRepost(getUrlByVU(), { limit: VIDEOS, timeoutS: 1800, promote: true });
 }
 
 export const handleSummary = makeSummary(TC, "repost");
