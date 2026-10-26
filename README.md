@@ -301,6 +301,7 @@ Target: NexSoft CI/CD API at `http://mac-mini-2.local:8080/api/v1` (LAN only). `
 |----|------|--------|
 | TC01 | `repost/TC01-single-user-20-videos.js` | 1 user reposts 20 videos in a single job (needs a profile with 20 unposted videos) |
 | TC02 | `repost/TC02-concurrent-5-users.js` | 5 users at once, each reposting its own link (needs 5 links in `REPOST_URLS`) |
+| TC03 | `repost/TC03-concurrent-50-users.js` | 50 users (50 TikTok accounts) at once, 1 new video each (needs 50 links in `REPOST_URLS`; `-e USERS=10` runs fewer users) |
 
 Keep the key in `.env` (git-ignored): copy `.env.example` to `.env` and set `API_KEY`. k6 does not read `.env` itself, so run through the wrapper:
 

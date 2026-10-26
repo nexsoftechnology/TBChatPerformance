@@ -1,9 +1,13 @@
 # Runs a Discover k6 test with variables loaded from .env (k6 does not read .env itself).
-# Usage: .\scripts\run-discover.ps1 k6-tests/Discover/repost/TC01-baseline.js [extra k6 args]
-param(
-  [Parameter(Mandatory = $true, Position = 0)][string]$Test,
-  [Parameter(ValueFromRemainingArguments = $true)][string[]]$K6Args
-)
+# Usage: .\scripts\run-discover.ps1 k6-tests/Discover/repost/TC01-single-user-20-videos.js [-e NAME=value ...]
+# $args is used instead of param() so k6 flags such as -e are not parsed as PowerShell parameters.
+if ($args.Count -lt 1) {
+  Write-Error "Usage: .\scripts\run-discover.ps1 <test.js> [k6 args]"
+  exit 1
+}
+$Test   = $args[0]
+$K6Args = @()
+if ($args.Count -gt 1) { $K6Args = $args[1..($args.Count - 1)] }
 
 $root = Split-Path -Parent $PSScriptRoot
 $envFile = Join-Path $root ".env"
